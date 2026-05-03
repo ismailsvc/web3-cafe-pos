@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   isConnected,
-  isAllowed,
-  setAllowed,
+  requestAccess, // Always opens account selection popup
   getAddress,
   getNetwork,
 } from "@stellar/freighter-api";
@@ -26,39 +25,18 @@ export function useFreighter() {
     isInstalled: false,
   });
 
+  // Only check if the extension is installed — do NOT auto-connect
   useEffect(() => {
-    checkInstalled();
+    isConnected().then((result) => {
+      setState((s) => ({ ...s, isInstalled: result.isConnected }));
+    });
   }, []);
 
-  const checkInstalled = async () => {
-    const connResult = await isConnected();
-    if (!connResult.isConnected) {
-      setState((s) => ({ ...s, isInstalled: false }));
-      return;
-    }
-
-    setState((s) => ({ ...s, isInstalled: true }));
-
-    const allowedResult = await isAllowed();
-    if (allowedResult.isAllowed) {
-      try {
-        const addrResult = await getAddress();
-        const netResult = await getNetwork();
-        if (!addrResult.error && !netResult.error) {
-          setState({
-            status: "connected",
-            address: addrResult.address,
-            network: netResult.network,
-            error: null,
-            isInstalled: true,
-          });
-        }
-      } catch {
-        // Not connected yet
-      }
-    }
-  };
-
+  /**
+   * connect — always opens the Freighter account selection popup.
+   * Uses requestAccess() instead of setAllowed() so the user picks
+   * which account to use every time they click "Bağla".
+   */
   const connect = useCallback(async () => {
     setState((s) => ({ ...s, status: "connecting", error: null }));
 
@@ -68,34 +46,40 @@ export function useFreighter() {
         setState((s) => ({
           ...s,
           status: "error",
-          error: "Freighter yüklü değil. Tarayıcı eklentisini kurun.",
+          error: "Freighter yüklü değil. Chrome eklentisini kurun.",
           isInstalled: false,
         }));
         return;
       }
 
-      await setAllowed();
+      // requestAccess always shows the account selector popup
+      const accessResult = await requestAccess();
+      if (accessResult.error) {
+        throw new Error("Erişim reddedildi");
+      }
+
+      // After access granted, fetch current address and network
       const addrResult = await getAddress();
       const netResult = await getNetwork();
 
-      if (addrResult.error) {
+      if (addrResult.error || !addrResult.address) {
         throw new Error("Adres alınamadı");
       }
 
       setState({
         status: "connected",
         address: addrResult.address,
-        network: netResult.network,
+        network: netResult.network ?? null,
         error: null,
         isInstalled: true,
       });
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Bağlantı başarısız";
+      const message = err instanceof Error ? err.message : "Bağlantı başarısız";
       setState((s) => ({ ...s, status: "error", error: message }));
     }
   }, []);
 
+  /** disconnect — clears local state only (Freighter extension stays untouched) */
   const disconnect = useCallback(() => {
     setState((s) => ({
       ...s,

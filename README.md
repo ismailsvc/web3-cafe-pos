@@ -1,971 +1,582 @@
-# Stellar Wallet & Akıllı Sözleşme Projesi
+# ☕ Web3 Café POS
 
-> Freighter cüzdanı ile Stellar Testnet'e bağlanan, XLM bakiyesi gösteren ve Soroban akıllı sözleşmesiyle etkileşime giren tam yığın bir web uygulaması.
+> **A real-time, QR-based restaurant ordering system powered by the Stellar blockchain.**
 
----
-
-## İçindekiler
-
-1. [Stellar Nedir?](#1-stellar-nedir)
-2. [Blockchain (Blok Zinciri) Nedir?](#2-blockchain-blok-zinciri-nedir)
-3. [XLM (Lumen) Nedir?](#3-xlm-lumen-nedir)
-4. [Cüzdan (Wallet) Nedir?](#4-cüzdan-wallet-nedir)
-5. [Freighter Nedir?](#5-freighter-nedir)
-6. [Akıllı Sözleşme Nedir?](#6-akıllı-sözleşme-nedir)
-7. [Soroban Nedir?](#7-soroban-nedir)
-8. [Stellar Neyle Kodlanır?](#8-stellar-neyle-kodlanır)
-9. [Testnet ve Mainnet Farkı](#9-testnet-ve-mainnet-farkı)
-10. [Proje Mimarisi](#10-proje-mimarisi)
-11. [Windows Kurulumu](#11-windows-kurulumu)
-12. [Linux Kurulumu](#12-linux-kurulumu)
-13. [Projeyi Çalıştırma](#13-projeyi-çalıştırma)
-14. [Akıllı Sözleşmeyi Deploy Etme](#14-akıllı-sözleşmeyi-deploy-etme)
-15. [Proje Dosya Yapısı](#15-proje-dosya-yapısı)
-16. [API Referansı](#16-api-referansı)
-17. [Sık Sorulan Sorular](#17-sık-sorulan-sorular)
+Customers scan a QR code at their table to access the menu and pay with XLM via **Freighter** or **Albedo** wallet. Payments are locked in escrow by a **Soroban smart contract** and automatically released to the café owner when the waiter marks the order as delivered.
 
 ---
 
-## 1. Stellar Nedir?
+## 📋 Table of Contents
 
-**Stellar**, 2014 yılında **Jed McCaleb** ve **Joyce Kim** tarafından kurulan, açık kaynaklı bir **merkeziyetsiz ödeme ağıdır**. Amacı; bankası olmayan insanlara, farklı para birimlerini hızlı ve ucuz şekilde birbirine dönüştürme imkânı sunmaktır.
-
-### Stellar'ı Özel Kılan Nedir?
-
-| Özellik | Stellar | Geleneksel Banka Transferi |
-|---|---|---|
-| İşlem süresi | ~3-5 saniye | 1-5 iş günü |
-| İşlem ücreti | ~0.00001 XLM (neredeyse sıfır) | 5–50 USD |
-| Çalışma saati | 7/24 | Mesai saatleri |
-| Coğrafi sınır | Yok | Ülkeye göre değişir |
-| Aracı | Yok (merkeziyetsiz) | Banka, Swift ağı |
-
-### Stellar'ın Kullanım Alanları
-
-- **Para havalesi:** Yurt dışına ucuz ve hızlı para gönderme
-- **Tokenizasyon:** Gayrimenkul, hisse senedi, altın gibi varlıkları dijital token'a çevirme
-- **Mikro ödeme:** İçerik üreticilerine küçük miktarlarda ödeme
-- **DeFi (Merkeziyetsiz Finans):** Banka olmadan borç verme ve alma
-- **Kurumsal ödeme:** MoneyGram, IBM gibi şirketler Stellar altyapısını kullanır
-
-### Stellar Vakfı (SDF)
-
-Stellar'ın gelişimini **Stellar Development Foundation (SDF)** yürütür. SDF kâr amacı gütmeyen bir kuruluştur ve ağın açık ve erişilebilir kalmasını sağlar.
+- [Features](#-features)
+- [Architecture](#-architecture)
+- [Directory Structure](#-directory-structure)
+- [Installation](#-installation)
+- [Running the App](#-running-the-app)
+- [Transaction Flow](#-transaction-flow)
+- [Smart Contract (Soroban POS)](#-smart-contract-soroban-pos)
+- [API Reference](#-api-reference)
+- [Roles & Authentication](#-roles--authentication)
+- [QR Code Generation](#-qr-code-generation)
+- [Network & Environment](#-network--environment)
+- [Tech Stack](#-tech-stack)
 
 ---
 
-## 2. Blockchain (Blok Zinciri) Nedir?
+## ✨ Features
 
-Blockchain'i anlamak için önce klasik bir veritabanı düşünün: Bir banka, "Ali'nin hesabında 1000 TL var" bilgisini kendi sunucusunda saklar. Bankaya güveniriz çünkü o kayıtları yönetir.
+### Customer
+- Access the menu at `/menu/:tableId` by scanning the table QR code
+- Category-filtered, animated menu (Hot Drinks, Cold Drinks, Breakfast, Main Dishes, Desserts)
+- Pay with XLM via Freighter (desktop) or Albedo (mobile)
+- Real-time order tracking (preparing / ready / delivered)
+- Order history with blockchain transaction link
+- Waiter call / complaint submission
+- Table leave notification
 
-**Blockchain'de ise bu kayıt binlerce bilgisayara dağıtılır.** Hiçbir merkezi otorite yoktur.
+### Waiter Panel (`/waiter`)
+- PIN-based login; each waiter has their own credentials
+- View and update active order statuses (preparing → ready → delivered)
+- Table status management (idle / occupied / needs cleaning)
+- Real-time stock management (toggle items in/out of stock instantly)
+- Complaint and call notifications
+- Live updates via WebSocket
 
-### Nasıl Çalışır?
+### Admin Panel (`/admin`)
+- Full menu management (add, edit, delete items)
+- Product image uploads
+- Waiter management (add, remove, change PIN)
+- Analytics dashboard (daily revenue, orders per table, best-selling items)
+- View all orders
 
-```
-[İşlem gerçekleşir]
-        ↓
-[İşlem ağdaki bilgisayarlara yayılır]
-        ↓
-[Bilgisayarlar (validatörler) işlemi doğrular]
-        ↓
-[Onaylanan işlem bir "blok"a eklenir]
-        ↓
-[Blok, zincire eklenir → değiştirilemez]
-```
-
-### Blockchain'in Temel Özellikleri
-
-- **Şeffaflık:** Tüm işlemler herkese açık görüntülenebilir
-- **Değiştirilemezlik:** Eklenen veri silinemez veya değiştirilemez
-- **Merkeziyetsizlik:** Tek bir sunucu değil, binlerce bilgisayar
-- **Güven:** Sisteme güvenmek için bir kuruma güvenmek zorunda değilsiniz
-
-### Stellar'ın Konsensüs Mekanizması: SCP
-
-Stellar, işlemleri doğrulamak için **Stellar Consensus Protocol (SCP)** kullanır. Enerji tüketen "madencilik" (Bitcoin'deki gibi) yoktur. Bunun yerine güvenilen validatör düğümleri oylama yaparak işlemleri onaylar. Bu yüzden Stellar çok hızlı ve çevre dostudur.
-
----
-
-## 3. XLM (Lumen) Nedir?
-
-**XLM**, Stellar ağının yerel kripto para birimidir. "Lumen" olarak da bilinir.
-
-### XLM'nin Görevleri
-
-**1. İşlem Ücreti Ödemek**
-Her Stellar işlemi çok küçük bir XLM ücreti gerektirir (0.00001 XLM ≈ 0.000003 USD). Bu ücret spam'i önler.
-
-**2. Minimum Bakiye (Base Reserve)**
-Bir Stellar hesabının aktif kalması için en az **1 XLM** bulundurması gerekir. Her ek kayıt (trustline, veri girişi vb.) için +0.5 XLM gerekir. Bu, ağı gereksiz hesaplardan korur.
-
-**3. Köprü Para Birimi**
-Örneğin TRY → USD dönüşümünde doğrudan piyasa yoksa, sistem otomatik olarak TRY → XLM → USD yolunu kullanabilir.
-
-### XLM Nasıl Edinilir?
-
-- **Testnet için (ücretsiz):** Friendbot aracılığıyla test XLM alınır
-- **Mainnet için:** Binance, Coinbase gibi borsalardan satın alınır
+### Blockchain (Soroban Testnet)
+- `create_order`: Locks the customer's XLM in the smart contract as escrow
+- `fulfill_order`: When the waiter marks delivery, the backend calls the contract to release funds to the café owner
+- All transactions can be tracked at [stellar.expert](https://stellar.expert/explorer/testnet)
 
 ---
 
-## 4. Cüzdan (Wallet) Nedir?
-
-Kripto cüzdanı, klasik bir cüzdandan farklıdır. **Paranın kendisini değil, paranıza erişim anahtarlarınızı saklar.**
-
-### Cüzdanın Bileşenleri
+## 🏗 Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    STELLAR HESABI                    │
-│                                                     │
-│  Açık Anahtar (Public Key):                         │
-│  GABC...XYZ  ← Banka hesap numaranız gibi           │
-│               Herkesle paylaşabilirsiniz            │
-│                                                     │
-│  Gizli Anahtar (Secret Key / Private Key):          │
-│  SABC...XYZ  ← PIN kodunuz/şifreniz gibi            │
-│               KİMSEYLE PAYLAŞMAYIN!                 │
-└─────────────────────────────────────────────────────┘
-```
-
-### Cüzdan Türleri
-
-| Tür | Örnek | Güvenlik | Kolaylık |
-|---|---|---|---|
-| **Tarayıcı Eklentisi** | Freighter | Orta | Yüksek |
-| **Masaüstü Uygulaması** | Solar Wallet | İyi | Orta |
-| **Donanım Cüzdanı** | Ledger | Çok Yüksek | Düşük |
-| **Kağıt Cüzdan** | Yazdırılmış anahtar | Çok Yüksek | Çok Düşük |
-| **Borsa Cüzdanı** | Binance | Düşük* | Çok Yüksek |
-
-> *Borsa cüzdanlarında özel anahtarınız size ait değildir. "Not your keys, not your coins."
-
-### Cüzdan ile Ne Yapabilirsiniz?
-
-- XLM ve diğer Stellar varlıklarını gönderip alabilirsiniz
-- Akıllı sözleşmelerle etkileşime girebilirsiniz
-- Token'lara güven limiti (trustline) açabilirsiniz
-- İşlemleri imzalayabilirsiniz
-
----
-
-## 5. Freighter Nedir?
-
-**Freighter**, Stellar ağı için geliştirilmiş ücretsiz bir **tarayıcı cüzdan eklentisidir**. MetaMask'ın Ethereum için yaptığını Freighter, Stellar için yapar.
-
-### Freighter'ın Özellikleri
-
-- Chrome, Firefox ve Brave tarayıcılarında çalışır
-- Birden fazla hesap yönetimi
-- Testnet / Mainnet arasında kolay geçiş
-- Web uygulamalarına güvenli bağlantı
-- İşlemleri imzalamadan önce kullanıcıya gösterir
-
-### Freighter Nasıl Çalışır?
-
-```
-Web Uygulaması            Freighter            Stellar Ağı
-     │                       │                      │
-     │── "İşlem İmzala" ──►  │                      │
-     │                       │ Kullanıcıya Sor      │
-     │                       │ [Onayla] / [Reddet]  │
-     │  ◄── İmzalı XDR ────  │                      │
-     │                       │                      │
-     │──────────────── İmzalı İşlemi Gönder ──────► │
-```
-
-Uygulama hiçbir zaman gizli anahtarınıza erişemez. Freighter yalnızca imzalanmış işlemi geri döner.
-
-### Freighter Kurulumu
-
-1. Chrome Web Store'a gidin
-2. "Freighter Wallet" aratın
-3. "Chrome'a Ekle" butonuna tıklayın
-4. Eklenti açıldığında yeni bir hesap oluşturun veya mevcut anahtarınızı içe aktarın
-5. **Testnet için:** Ayarlar → Ağ → Testnet seçin
-
----
-
-## 6. Akıllı Sözleşme Nedir?
-
-**Akıllı sözleşme (smart contract)**, blockchain üzerinde çalışan bir bilgisayar programıdır. Normal bir sözleşme gibi kurallar içerir; ancak bu kurallar otomatik olarak, aracıya gerek kalmadan uygulanır.
-
-### Klasik Sözleşme vs Akıllı Sözleşme
-
-```
-Klasik Sözleşme:
-  Ali → Para Gönder → Banka → Kontrol Et → Mehmet
-                        ↑
-                   Aracıya güven
-
-Akıllı Sözleşme:
-  Ali → Koşul Sağlandı mı? → Evet → Otomatik Transfer → Mehmet
-                ↑
-          Kod güvencesi (değiştirilemez)
-```
-
-### Gerçek Hayat Örneği
-
-**Kira sözleşmesi akıllı sözleşme olsaydı:**
-- Her ayın 1'inde kiracının hesabından kira otomatik çekilir
-- Ev sahibi kapı şifresini verir; kira ödenirse şifre çalışmaya devam eder
-- Ödeme yapılmazsa şifre otomatik iptal olur
-- Ne ev sahibi ne kiracı ne de avukat süreci yönetmek zorunda kalır
-
-### Bu Projede Akıllı Sözleşme
-
-Bu projede **sayaç sözleşmesi** yer almaktadır. Basit bir örnek olarak tasarlanmıştır:
-
-- Blockchain üzerinde bir sayı saklar
-- Herkes sayıyı artırabilir veya azaltabilir
-- Yalnızca admin sıfırlayabilir
-- Tüm değişiklikler blockchain'de kalıcıdır, kimse silemez
-
-### Akıllı Sözleşmenin Avantajları
-
-- **Güven:** Kodun ne yapacağı önceden bellidir
-- **Şeffaflık:** Kaynak kodu herkese açık
-- **Otomasyon:** İnsan müdahalesi gerekmez
-- **Maliyet:** Aracı komisyonu yoktur
-
----
-
-## 7. Soroban Nedir?
-
-**Soroban**, Stellar'ın akıllı sözleşme platformudur. 2023 yılında Stellar ağına entegre edilmiştir.
-
-### Soroban'ın Teknik Altyapısı
-
-Soroban sözleşmeleri **WebAssembly (WASM)** formatında derlenir ve Stellar ağında çalıştırılır. WebAssembly; hız, güvenlik ve taşınabilirlik için tasarlanmış modern bir ikili format standardıdır.
-
-```
-Rust Kodu (.rs)
-      ↓ derleme
-WebAssembly (.wasm)
-      ↓ deploy
-Stellar Ağı (blockchain)
-      ↓ çalıştırma
-Sonuç (return value)
-```
-
-### Soroban'ın Özellikleri
-
-- **Rust dili:** Güvenli, hızlı sistem programlama dili
-- **Deterministik yürütme:** Aynı giriş her zaman aynı çıktıyı verir
-- **Kaynak limitleri:** Her işlem CPU ve bellek limitleriyle çalışır
-- **3 depolama tipi:**
-  - `instance` — sözleşmenin ömrüyle yaşar (global ayarlar)
-  - `persistent` — manuel TTL yönetimi (kullanıcı bakiyeleri)
-  - `temporary` — süreli, otomatik silinir (önbellekler)
-
-### Soroban vs Ethereum Solidity
-
-| | Soroban (Stellar) | Solidity (Ethereum) |
-|---|---|---|
-| Dil | Rust | Solidity (kendine özgü) |
-| VM | WebAssembly | EVM |
-| İşlem ücreti | Çok düşük | Değişken (gas) |
-| İşlem hızı | ~5 saniye | ~12 saniye |
-| Test araçları | Cargo test | Hardhat / Foundry |
-
----
-
-## 8. Stellar Neyle Kodlanır?
-
-Stellar ekosistemi birden fazla katmandan oluşur ve her katman farklı teknolojilerle kodlanır.
-
-### Katman 1: Akıllı Sözleşmeler → Rust
-
-```rust
-// Örnek: Basit bir sayaç sözleşmesi
-#![no_std]
-use soroban_sdk::{contract, contractimpl, Env};
-
-#[contract]
-pub struct SayacSozlesmesi;
-
-#[contractimpl]
-impl SayacSozlesmesi {
-    pub fn artir(env: Env) -> u32 {
-        let deger: u32 = env.storage().instance().get(&"sayac").unwrap_or(0);
-        let yeni = deger + 1;
-        env.storage().instance().set(&"sayac", &yeni);
-        yeni
-    }
-}
-```
-
-**Neden Rust?**
-- Bellek güvenliği: Çalışma zamanı hatası olmadan güvenli kod
-- Yüksek performans: C/C++ hızında çalışır
-- WebAssembly desteği: Kolayca WASM'a derlenir
-- Zengin ekosistem: `cargo` paket yöneticisi
-
-### Katman 2: Backend (Sunucu Tarafı) → JavaScript / Node.js
-
-```javascript
-// Horizon API ile hesap bilgisi çekme
-import { Horizon } from "@stellar/stellar-sdk";
-
-const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
-const hesap = await horizon.loadAccount("GABC...XYZ");
-console.log(hesap.balances); // XLM ve token bakiyeleri
-```
-
-Alternatif backend dilleri:
-- **Python:** `stellar-sdk` kütüphanesi ile
-- **Go:** `stellar/go` resmi SDK'sı
-- **Java:** Resmi Java SDK
-
-### Katman 3: Frontend (Tarayıcı Tarafı) → React + TypeScript
-
-```typescript
-// Freighter ile cüzdan bağlantısı
-import { getAddress, signTransaction } from "@stellar/freighter-api";
-
-const { address } = await getAddress();
-console.log("Bağlanan adres:", address);
-```
-
-### Bu Projenin Teknoloji Yığını
-
-```
-┌─────────────────────────────────────────────┐
-│  FRONTEND                                   │
-│  React 18 + TypeScript + Vite               │
-│  @stellar/stellar-sdk  (işlem oluşturma)    │
-│  @stellar/freighter-api (cüzdan bağlantısı) │
-├─────────────────────────────────────────────┤
-│  BACKEND                                    │
-│  Node.js + Express                          │
-│  @stellar/stellar-sdk (Horizon API)         │
-├─────────────────────────────────────────────┤
-│  AKILLI SÖZLEŞME                            │
-│  Rust + soroban-sdk                         │
-│  Stellar CLI (derleme & deploy)             │
-├─────────────────────────────────────────────┤
-│  STELLAR AĞI (TESTNET)                      │
-│  Horizon API  → horizon-testnet.stellar.org │
-│  Soroban RPC  → soroban-testnet.stellar.org │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        CUSTOMER DEVICE                          │
+│   QR Scan → /menu/:tableId  →  Menu  →  Payment (Freighter /   │
+│                                          Albedo)                │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ WebSocket + REST
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                  BACKEND  (Node.js / Express)                   │
+│  • SQLite database (orders, menu, tables, waiters)             │
+│  • Real-time broadcast via Socket.IO                           │
+│  • Image uploads via Multer                                     │
+│  • Soroban fulfill_order call (stellar CLI)                    │
+└──────────┬──────────────────────────────────────────────────────┘
+           │ stellar CLI / Soroban RPC
+           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              SOROBAN SMART CONTRACT  (Testnet)                  │
+│  CafePos: create_order  ↔  fulfill_order                       │
+│  Contract ID: CCDRWVJTAIOB7TADJEE6XYG2EZSH3CLE35AN5BWEVVAA… │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 9. Testnet ve Mainnet Farkı
-
-| | Testnet | Mainnet |
-|---|---|---|
-| Para | Sahte XLM (değersiz) | Gerçek XLM (piyasa değeri var) |
-| Amaç | Geliştirme ve test | Gerçek kullanım |
-| Friendbot | Ücretsiz XLM alınabilir | Yok |
-| Hesap açma | Friendbot ile ücretsiz | XLM satın alınmalı |
-| Explorer | stellar.expert/testnet | stellar.expert/public |
-| Risk | Sıfır | Gerçek para kaybı |
-
-> Bu proje **Testnet** üzerinde çalışır. Gerçek para gerekli değildir.
-
----
-
-## 10. Proje Mimarisi
+## 📁 Directory Structure
 
 ```
-Kullanıcı Tarayıcısı
-        │
-        │ HTTP (React SPA)
-        ▼
-┌──────────────┐        ┌──────────────────┐
-│   Frontend   │◄──────►│  Freighter Cüzdan│
-│  (Vite:5173) │        │  (Tarayıcı Ext.) │
-└──────┬───────┘        └──────────────────┘
-       │ REST API
-       ▼
-┌──────────────┐
-│   Backend    │
-│  (Node:4000) │
-└──────┬───────┘
-       │ Horizon API / Soroban RPC
-       ▼
-┌──────────────────────────────┐
-│       Stellar Testnet        │
-│  ┌────────────┐ ┌─────────┐  │
-│  │ Horizon    │ │ Soroban │  │
-│  │ (Klasik)   │ │  (RPC)  │  │
-│  └────────────┘ └─────────┘  │
-└──────────────────────────────┘
-```
-
----
-
-## 11. Windows Kurulumu
-
-### Adım 1: Node.js Kurulumu
-
-Node.js, JavaScript'i tarayıcı dışında çalıştıran bir ortamdır.
-
-1. [https://nodejs.org](https://nodejs.org) adresine gidin
-2. **"LTS"** (Long Term Support) sürümünü indirin
-3. İndirilen `.msi` dosyasını çalıştırın
-4. Kurulumu "Next → Next → Install" şeklinde tamamlayın
-
-Kurulum doğrulama (Komut İstemi / PowerShell):
-```cmd
-node --version
-npm --version
-```
-Her iki komut da versiyon numarası gösteriyorsa kurulum başarılıdır.
-
----
-
-### Adım 2: Rust Kurulumu (Akıllı Sözleşme için)
-
-Rust, Soroban akıllı sözleşmelerini yazmak için kullanılır.
-
-1. [https://rustup.rs](https://rustup.rs) adresine gidin
-2. `rustup-init.exe` dosyasını indirin ve çalıştırın
-3. Komut penceresinde `1` tuşuna basın (varsayılan kurulum)
-4. Kurulum tamamlandıktan sonra **yeni bir terminal** açın
-
-```cmd
-rustc --version
-cargo --version
-```
-
-WebAssembly hedefini ekleyin:
-```cmd
-rustup target add wasm32-unknown-unknown
-```
-
----
-
-### Adım 3: Stellar CLI Kurulumu
-
-Stellar CLI, sözleşme derleme ve deploy işlemleri için kullanılır.
-
-```cmd
-cargo install --locked stellar-cli
-```
-
-> Bu işlem ilk kurulumda 5-10 dakika sürebilir.
-
-Doğrulama:
-```cmd
-stellar --version
-```
-
----
-
-### Adım 4: Git Kurulumu
-
-1. [https://git-scm.com](https://git-scm.com) adresine gidin
-2. Windows sürümünü indirin ve kurun
-3. Kurulum sırasında tüm seçenekleri varsayılan bırakabilirsiniz
-
-```cmd
-git --version
-```
-
----
-
-### Adım 5: Freighter Tarayıcı Eklentisi
-
-1. Google Chrome veya Brave tarayıcısını açın
-2. [Freighter Wallet](https://www.freighter.app/) sitesine gidin
-3. "Download for Chrome" butonuna tıklayın
-4. Chrome Web Store'da "Chrome'a Ekle" deyin
-5. Eklenti kurulduktan sonra:
-   - Yeni cüzdan oluşturun
-   - **Güvenli bir yere gizli anahtarınızı kaydedin!**
-   - Ayarlar → Ağ → **Testnet** seçin
-
----
-
-### Adım 6: Projeyi İndirin ve Çalıştırın
-
-```cmd
-git clone https://github.com/KULLANICI_ADINIZ/stellarproje.git
-cd stellarproje
-```
-
-Frontend bağımlılıklarını yükleyin:
-```cmd
-cd frontend
-npm install
-cd ..
-```
-
-Backend bağımlılıklarını yükleyin:
-```cmd
-cd backend
-npm install
-cd ..
-```
-
----
-
-## 12. Linux Kurulumu
-
-### Adım 1: Sistem Güncellemesi
-
-**Ubuntu / Debian:**
-```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y curl git build-essential pkg-config libssl-dev
-```
-
-**Fedora / RHEL:**
-```bash
-sudo dnf update -y
-sudo dnf install -y curl git gcc openssl-devel
-```
-
-**Arch Linux:**
-```bash
-sudo pacman -Syu
-sudo pacman -S curl git base-devel openssl
-```
-
----
-
-### Adım 2: Node.js Kurulumu
-
-**nvm (Node Version Manager) ile kurulum önerilir:**
-
-```bash
-# nvm'yi indir ve kur
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-
-# Terminal'i yenile
-source ~/.bashrc  # veya source ~/.zshrc
-
-# LTS sürümü kur
-nvm install --lts
-nvm use --lts
-```
-
-Doğrulama:
-```bash
-node --version   # v20.x.x veya üzeri olmalı
-npm --version
-```
-
----
-
-### Adım 3: Rust Kurulumu
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-Yükleyici açıldığında `1` tuşuna basın (varsayılan kurulum).
-
-Terminal'i yenileyin:
-```bash
-source ~/.cargo/env
-```
-
-Doğrulama:
-```bash
-rustc --version
-cargo --version
-```
-
-WebAssembly hedefini ekleyin:
-```bash
-rustup target add wasm32-unknown-unknown
-```
-
----
-
-### Adım 4: Stellar CLI Kurulumu
-
-```bash
-cargo install --locked stellar-cli
-```
-
-Eğer `~/.cargo/bin` PATH'inizde değilse ekleyin:
-```bash
-echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Doğrulama:
-```bash
-stellar --version
-```
-
----
-
-### Adım 5: Freighter Tarayıcı Eklentisi
-
-Linux'ta Chrome veya Chromium tarayıcısı kullanabilirsiniz.
-
-**Chrome kurulumu (Ubuntu):**
-```bash
-wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-sudo apt update
-sudo apt install google-chrome-stable
-```
-
-Ardından Chrome'da Freighter eklentisini kurun (aynı adımlar Windows ile aynıdır).
-
----
-
-### Adım 6: Projeyi İndirin
-
-```bash
-git clone https://github.com/KULLANICI_ADINIZ/stellarproje.git
-cd stellarproje
-
-# Frontend
-cd frontend && npm install && cd ..
-
-# Backend
-cd backend && npm install && cd ..
-```
-
----
-
-## 13. Projeyi Çalıştırma
-
-### Frontend'i Başlatın
-
-```bash
-cd frontend
-npm run dev
-```
-
-Tarayıcıda açın: `http://localhost:5173`
-
----
-
-### Backend'i Başlatın (ayrı terminal)
-
-```bash
-cd backend
-npm run dev
-```
-
-Backend çalışıyor: `http://localhost:4000`
-
-Sağlık kontrolü:
-```bash
-curl http://localhost:4000/api/health
-# {"ok":true,"network":"testnet","timestamp":"..."}
-```
-
----
-
-### Uygulamayı Kullanmak
-
-1. Tarayıcıda `http://localhost:5173` adresini açın
-2. Sağ üstteki **"Bağlan"** butonuna tıklayın
-3. Freighter açılır → **"Onayla"** deyin
-4. XLM bakiyeniz ve hesap bilgileriniz görünür
-
----
-
-### Testnet XLM Almak (Ücretsiz)
-
-Testnet'te hesabınızı fonlamak için Friendbot kullanın:
-
-```bash
-curl "https://friendbot.stellar.org?addr=HESAP_ADRESINIZ"
-```
-
-Veya tarayıcıdan:
-```
-https://friendbot.stellar.org?addr=GABC...XYZ
-```
-
----
-
-## 14. Akıllı Sözleşmeyi Deploy Etme
-
-### Adım 1: Kimlik Oluşturun
-
-```bash
-stellar keys generate --global gelistirici --network testnet --fund
-```
-
-Bu komut:
-- `gelistirici` adında bir kimlik oluşturur
-- Testnet'te otomatik fonlar (10.000 test XLM)
-
-Adresinizi görün:
-```bash
-stellar keys address gelistirici
-```
-
----
-
-### Adım 2: Sözleşmeyi Derleyin
-
-```bash
-cd contracts/counter
-stellar contract build
-```
-
-Derleme çıktısı:
-```
-target/wasm32-unknown-unknown/release/counter.wasm
-```
-
----
-
-### Adım 3: Testnet'e Deploy Edin
-
-```bash
-stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/counter.wasm \
-  --source gelistirici \
-  --network testnet \
-  -- \
-  --admin gelistirici
-```
-
-Komut bir **Contract ID** döndürür (C harfiyle başlar):
-```
-CXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-```
-
-Bu ID'yi kopyalayın!
-
----
-
-### Adım 4: Ortam Değişkenini Ayarlayın
-
-`frontend/` klasöründe `.env` dosyası oluşturun:
-
-```bash
-# frontend/.env
-VITE_COUNTER_CONTRACT_ID=CXXXXXXX...  # Kopyaladığınız ID
-```
-
-Frontend'i yeniden başlatın:
-```bash
-cd frontend
-npm run dev
-```
-
-Artık arayüzde **"Sayaç Sözleşmesi"** kartı görünecek!
-
----
-
-### Adım 5: Sözleşmeyi Test Edin (Opsiyonel)
-
-Rust unit testleri:
-```bash
-cd contracts/counter
-cargo test
-```
-
-CLI ile manuel test:
-```bash
-# Sayacı oku
-stellar contract invoke \
-  --id CXXXXX... \
-  --source gelistirici \
-  --network testnet \
-  -- get_count
-
-# Sayacı artır
-stellar contract invoke \
-  --id CXXXXX... \
-  --source gelistirici \
-  --network testnet \
-  -- increment
-```
-
----
-
-## 15. Proje Dosya Yapısı
-
-```
-stellarproje/
-│
-├── contracts/                    ← Akıllı sözleşmeler (Rust)
-│   └── counter/
-│       ├── Cargo.toml            ← Rust paket tanımı
-│       └── src/
-│           └── lib.rs            ← Sözleşme kaynak kodu
-│
-├── frontend/                     ← React uygulaması
-│   ├── src/
-│   │   ├── App.tsx               ← Ana uygulama bileşeni
-│   │   ├── hooks/
-│   │   │   └── useFreighter.ts   ← Cüzdan bağlantı hook'u
-│   │   ├── components/
-│   │   │   ├── ConnectButton.tsx ← Bağlan/Bağlantıyı Kes butonu
-│   │   │   ├── WalletInfo.tsx    ← Hesap bilgileri kartı
-│   │   │   └── CounterContract.tsx ← Akıllı sözleşme UI
-│   │   └── lib/
-│   │       ├── stellar.ts        ← Stellar SDK yapılandırması
-│   │       └── contract.ts       ← Sözleşme etkileşim fonksiyonları
-│   ├── .env                      ← Ortam değişkenleri (git'e ekleme!)
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── backend/                      ← Node.js API sunucusu
-│   ├── server.js                 ← Express API endpoint'leri
+Web3_Menu/
+├── backend/                        # Node.js server
+│   ├── server.js                   # Express + Socket.IO + SQLite
+│   ├── generate_qrs.js             # Generates table QR code PNGs
+│   ├── seed_menu.mjs               # Initial menu seed data
+│   ├── cafe.db                     # SQLite database (not in git)
+│   ├── uploads/                    # Uploaded product images
 │   └── package.json
 │
-├── .gitignore
+├── frontend/                       # React + Vite + TypeScript
+│   ├── src/
+│   │   ├── App.tsx                 # Router layout and Header
+│   │   ├── components/
+│   │   │   ├── Landing.tsx         # Home page (customer entry + staff login)
+│   │   │   ├── Menu.tsx            # Customer menu + cart + payment
+│   │   │   ├── WaiterPanel.tsx     # Waiter order management
+│   │   │   ├── AdminPanel.tsx      # Admin menu/waiter/analytics management
+│   │   │   ├── ConnectButton.tsx   # Freighter connect button
+│   │   │   └── WalletInfo.tsx      # Connected wallet info display
+│   │   ├── hooks/
+│   │   │   └── useFreighter.ts     # Freighter wallet React hook
+│   │   ├── lib/
+│   │   │   ├── posContract.ts      # Soroban create_order / Albedo pay
+│   │   │   └── stellar.ts          # RPC URL and network passphrase config
+│   │   └── index.css               # Global design system (dark mode)
+│   ├── vite.config.ts              # Vite proxy (/api + WebSocket → :4000)
+│   └── package.json
+│
+├── contracts/
+│   └── pos/                        # Soroban smart contract (Rust)
+│       ├── src/lib.rs              # CafePos contract source
+│       └── Cargo.toml
+│
+├── Masa_QRCodes/                   # Generated QR PNG files (5 tables)
 └── README.md
 ```
 
 ---
 
-## 16. API Referansı
+## 🚀 Installation
 
-### Backend Endpoint'leri
+### Prerequisites
+- **Node.js** ≥ 18
+- **Rust + Soroban CLI** (only needed for contract re-deployment)
+- **Freighter** Chrome extension (for customer payments on desktop)
 
-#### `GET /api/health`
-Sunucunun çalıştığını doğrular.
+### 1. Install Dependencies
 
-**Yanıt:**
-```json
-{
-  "ok": true,
-  "network": "testnet",
-  "timestamp": "2025-01-01T00:00:00.000Z"
+```bash
+# Backend
+cd backend
+npm install
+
+# Frontend
+cd ../frontend
+npm install
+```
+
+### 2. Soroban CLI Setup (optional — contract is already deployed)
+
+```bash
+cargo install --locked stellar-cli --features opt
+stellar network add testnet \
+  --rpc-url https://soroban-testnet.stellar.org \
+  --network-passphrase "Test SDF Network ; September 2015"
+```
+
+---
+
+## ▶️ Running the App
+
+### Backend (Port 4000)
+
+```bash
+cd backend
+npm run dev        # node --watch server.js  (hot reload)
+# or
+npm start          # node server.js
+```
+
+Expected output:
+```
+✅ Backend Local:   http://localhost:4000
+🌐 Backend Network: http://10.0.8.36:4000
+📦 Database: cafe.db
+🖼️  Uploads: http://10.0.8.36:4000/uploads
+```
+
+### Frontend (Port 3001)
+
+```bash
+cd frontend
+npm run dev        # vite --host 0.0.0.0 --port 3001
+```
+
+Expected output:
+```
+  VITE v5.4.x  ready
+
+  ➜  Local:   http://localhost:3001/
+  ➜  Network: http://10.0.8.36:3001/
+```
+
+> Vite automatically proxies `/api`, `/uploads`, and `/socket.io` requests to `:4000`.
+
+### Regenerate QR Codes
+
+```bash
+cd backend
+node generate_qrs.js
+```
+
+Creates 5 PNG files in `../Masa_QRCodes/`, each pointing to `http://<local-ip>:3001/menu/<n>`.
+
+---
+
+## 💳 Transaction Flow
+
+### Freighter Payment (Desktop / Escrow)
+
+```
+Customer confirms cart
+       │
+       ▼
+useFreighter.connect()
+  → Freighter popup: account selection
+       │
+       ▼
+posContract.createOrder(address, totalXLM, tableId)
+  1. Fetches account sequence from Horizon
+  2. Builds transaction with create_order operation
+     - customer:      customer Stellar address
+     - token_address: XLM Native Token (CDLZFC...)
+     - amount:        total × 10_000_000 stroops (i128)
+     - items:         ["Masa<N>"] symbol vector
+  3. simulateTransaction() via Soroban RPC
+  4. assembleTransaction() → auth entries attached
+  5. Freighter.signTransaction(preparedTx.toXDR())
+  6. sendTransaction() → broadcast to RPC
+  7. getTransaction() polling (up to 45 s)
+       │
+       ├── SUCCESS → txHash returned
+       │       │
+       │       ▼
+       │  socket.emit("create_order", { tableId, items, total, txHash })
+       │       │
+       │       ▼
+       │  GET /api/get-order-id/:txHash
+       │    → parses contract orderId from diagnosticEventsXdr
+       │       │
+       │       ▼
+       │  POST /api/update-order-contract-id { txHash, contractOrderId }
+       │    → updates orders.contract_order_id in DB
+       │
+       └── FAILURE → alert shown to customer
+```
+
+**On-chain effect:**
+- `amount` XLM is transferred from the customer's wallet to the `CafePos` contract address (locked in escrow).
+- `order_seq` instance storage counter increments by 1.
+- New `Order` struct is written to persistent storage under `order_id`.
+
+---
+
+### Albedo Payment (Mobile / Direct)
+
+```
+Customer taps "Order with Albedo"
+       │
+       ▼
+albedo.pay({
+  amount:      totalXLM,
+  destination: CAFE_OWNER,   // GDSPUJG4...
+  network:     "testnet",
+  memo:        "Masa<N>",
+  submit:      true
+})
+  → Albedo mobile/web UI opens
+  → Customer approves
+       │
+       ▼
+txHash returned
+  → socket.emit("create_order", { tableId, items, total, txHash })
+```
+
+> With Albedo, funds go **directly** to `CAFE_OWNER`; the escrow mechanism is **not used**. This method is recommended for mobile users who don't have the Freighter extension.
+
+---
+
+### Waiter Delivery → Escrow Release
+
+```
+Waiter clicks "Delivered"
+       │
+       ▼
+socket.emit("update_order_status", { orderId, status: "delivered" })
+       │
+       ▼
+Backend: sets order status = "delivered" in DB
+       │
+       ▼
+fulfillOrderOnChain(contractOrderId):
+  stellar contract invoke \
+    --id    <CONTRACT_ID>  \
+    --source cafe_owner    \
+    --network testnet      \
+    -- fulfill_order       \
+    --waiter      <WAITER_KEY>      \
+    --order_id    <contractOrderId> \
+    --token_address <NATIVE_TOKEN>  \
+    --cafe_owner  <CAFE_OWNER>
+       │
+       ▼
+Contract:
+  1. Verifies order.status === "pending"
+  2. Sets order.status = "fulfilled"
+  3. Transfers amount XLM: contract_address → cafe_owner
+```
+
+---
+
+### Order Status Reference
+
+**On-chain (Soroban contract):**
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Funds locked in escrow, order being prepared |
+| `fulfilled` | Order delivered, funds released to café owner |
+
+**Frontend display:**
+
+| Status | Label |
+|--------|-------|
+| `preparing` | ☕ Preparing |
+| `ready` | ✅ Ready — On its way! |
+| `delivered` | 📝 Delivered |
+
+---
+
+## 📜 Smart Contract (Soroban POS)
+
+**Language:** Rust (`no_std`)
+**SDK:** soroban-sdk 25.0.1
+**Network:** Stellar Testnet
+
+### Deployment Info
+
+| Field | Value |
+|-------|-------|
+| **Contract ID** | `CCDRWVJTAIOB7TADJEE6XYG2EZSH3CLE35AN5BWEVVAANRNGDXY53VXK` |
+| **Deployment Transaction Hash** | `eeef6734244d986be2f363039d16b7ee1133c607c5f4832637a128882d425fee` |
+| **Deployment Date** | May 2, 2026 — 19:41:36 UTC |
+| **Ledger** | #2348744 |
+| **Deployer Address** | `GDDCU4GYVJTV45NUFG3WYXUG4Q2BA54UUWPGRFVPOHGDNWN2U4E6K4B7` |
+| **Native Token** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
+| **Café Owner** | `GDSPUJG45447VF2YSW6SIEYHZVPBCVQVBXO2BS3ESA5MHPCXUJHBAFDA` |
+| **Deploy Fee** | 0.0019601 XLM |
+
+🔗 **Deployment Transaction:** https://stellar.expert/explorer/testnet/tx/eeef6734244d986be2f363039d16b7ee1133c607c5f4832637a128882d425fee
+
+🔗 **Contract on Explorer:** https://stellar.expert/explorer/testnet/contract/CCDRWVJTAIOB7TADJEE6XYG2EZSH3CLE35AN5BWEVVAANRNGDXY53VXK
+
+---
+
+### Data Structure
+
+```rust
+pub struct Order {
+    pub customer: Address,   // Customer's Stellar address
+    pub amount: i128,        // Locked amount (stroops)
+    pub status: Symbol,      // "pending" | "fulfilled"
+    pub items: Vec<Symbol>,  // e.g. ["Masa1"] table identifier
 }
 ```
 
----
+### Contract Functions
 
-#### `GET /api/account/:address`
-Stellar hesap bilgilerini getirir.
+#### `create_order(env, customer, token_address, amount, items) → u32`
 
-**Parametreler:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `customer` | `Address` | Customer's Stellar address |
+| `token_address` | `Address` | XLM Native Token address |
+| `amount` | `i128` | Payment amount in stroops |
+| `items` | `Vec<Symbol>` | Order contents symbol |
 
-| Parametre | Tür | Açıklama |
-|---|---|---|
-| `address` | string | G ile başlayan 56 karakterli Stellar adresi |
+- `customer.require_auth()` verifies the customer's signature
+- `token::transfer(customer → contract, amount)` locks funds in escrow
+- `order_seq` in instance storage is incremented
+- New `Order` is written to persistent storage under `order_id`
+- Returns: `u32` sequence number (contract order ID)
 
-**Başarılı Yanıt (200):**
-```json
-{
-  "address": "GABC...XYZ",
-  "xlmBalance": "9999.9999800",
-  "sequence": "123456789",
-  "subentryCount": 0,
-  "tokens": [],
-  "networkPassphrase": "Test SDF Network ; September 2015"
-}
+#### `fulfill_order(env, waiter, order_id, token_address, cafe_owner)`
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `waiter` | `Address` | Authorized waiter's address |
+| `order_id` | `u32` | Contract order ID |
+| `token_address` | `Address` | XLM Native Token address |
+| `cafe_owner` | `Address` | Café owner's Stellar address |
+
+- `waiter.require_auth()` verifies waiter authorization
+- Panics if `order.status != "pending"`
+- Updates status to `"fulfilled"`
+- `token::transfer(contract → cafe_owner, amount)` releases escrow
+
+#### `get_order(env, order_id) → Order`
+
+Returns the `Order` struct for the given `order_id`.
+
+### Build & Deploy
+
+```bash
+cd contracts/pos
+
+# Build optimized WASM
+cargo build --target wasm32-unknown-unknown --release
+
+# Deploy to Testnet
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/pos.wasm \
+  --source cafe_owner \
+  --network testnet
 ```
 
-**Hata Yanıtları:**
+### Verify Contract
 
-| Kod | Açıklama |
-|---|---|
-| `400` | Geçersiz Stellar adresi |
-| `404` | Hesap bulunamadı (henüz fonlanmamış) |
-| `500` | Horizon bağlantı hatası |
-
----
-
-### Akıllı Sözleşme Fonksiyonları
-
-#### `initialize(admin: Address)`
-Sözleşmeyi başlatır. Yalnızca bir kez çağrılabilir.
-
-#### `increment() → u32`
-Sayacı 1 artırır, yeni değeri döner.
-
-#### `decrement() → u32`
-Sayacı 1 azaltır (minimum 0), yeni değeri döner.
-
-#### `reset()`
-Sayacı sıfırlar. Yalnızca admin çağırabilir (Freighter imzası gerekir).
-
-#### `get_count() → u32`
-Mevcut sayaç değerini okur (imza gerekmez, ücretsiz).
-
----
-
-## 17. Sık Sorulan Sorular
-
-**S: Freighter'ı bağlayamıyorum, ne yapmalıyım?**
-
-A: Şu adımları kontrol edin:
-1. Freighter eklentisi kurulu ve açık mı?
-2. Freighter'da **Testnet** ağı seçili mi? (Ayarlar → Ağ)
-3. Hesabınız oluşturulmuş mu?
-4. Tarayıcıyı yeniden başlatmayı deneyin.
-
----
-
-**S: "Hesap bulunamadı" hatası alıyorum.**
-
-A: Yeni oluşturulan hesaplar fonlanana kadar Stellar ağında görünmez. Friendbot ile ücretsiz test XLM alın:
-```
-https://friendbot.stellar.org?addr=HESAP_ADRESINIZ
+```bash
+stellar contract invoke \
+  --id CCDRWVJTAIOB7TADJEE6XYG2EZSH3CLE35AN5BWEVVAANRNGDXY53VXK \
+  --source cafe_owner \
+  --network testnet \
+  -- get_order \
+  --order_id 1
 ```
 
 ---
 
-**S: Sözleşme deploy ederken hata alıyorum.**
+## 🔌 API Reference
 
-A: Sıkça karşılaşılan sorunlar:
-- **"insufficient XLM":** `stellar keys generate --fund` ile hesabınızı yeniden fonlayın
-- **"wasm file not found":** `stellar contract build` komutunu çalıştırdığınızdan emin olun
-- **"network mismatch":** `--network testnet` parametresini kontrol edin
+### REST Endpoints (Backend :4000)
 
----
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/health` | Server health check |
+| `GET` | `/api/menu` | All menu items |
+| `POST` | `/api/menu/upload-image` | Upload product image (`multipart/form-data`) |
+| `GET` | `/api/orders` | All orders |
+| `GET` | `/api/orders/active` | Active (non-delivered) orders |
+| `GET` | `/api/orders/table/:tableId` | Orders for a specific table (customer view) |
+| `GET` | `/api/stock` | Stock status map `{ itemId: boolean }` |
+| `GET` | `/api/tables` | Table statuses |
+| `GET` | `/api/waiters` | Waiter list |
+| `GET` | `/api/analytics` | Revenue, order count, and item statistics |
+| `GET` | `/api/network-ip` | Server's local IP addresses |
+| `GET` | `/api/get-order-id/:txHash` | Parses contract order_id from tx hash |
+| `POST` | `/api/update-order-contract-id` | Updates contract_order_id in DB |
 
-**S: Gizli anahtarımı kaybettim, ne olur?**
+### Socket.IO Events
 
-A: Gizli anahtarı kaybederseniz hesabınıza bir daha **hiçbir şekilde** erişemezsiniz. Testnet için bu sorun değil (yeni hesap açabilirsiniz), ancak Mainnet'te gerçek para kaybı anlamına gelir. **Gizli anahtarı güvenli bir yerde saklayın!**
+#### Client → Server
 
----
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `create_order` | `{ tableId, items, total, contractOrderId }` | Create a new order |
+| `update_order_status` | `{ orderId, status }` | Update order status |
+| `update_table_status` | `{ tableId, status }` | Update table status |
+| `set_stock` | `{ itemId, inStock }` | Toggle item stock status |
+| `add_menu_item` | `{ name, desc, img, price, eta, image_url }` | Add a new menu item |
+| `update_menu_item` | `{ id, name, desc, img, price, eta, image_url }` | Update a menu item |
+| `remove_menu_item` | `{ itemId }` | Remove a menu item |
+| `add_waiter` | `{ name, pin }` | Add a new waiter |
+| `update_waiter` | `{ waiterId, name, pin }` | Update waiter info |
+| `remove_waiter` | `{ waiterId }` | Remove a waiter |
+| `submit_complaint` | `{ table, text }` | Submit a complaint or waiter call |
 
-**S: Rust öğrenmem gerekiyor mu?**
+#### Server → Client
 
-A: Yalnızca frontend geliştirmek için hayır. Ancak akıllı sözleşme yazmak veya değiştirmek için Rust bilgisi gerekir. Başlangıç için [The Rust Book](https://doc.rust-lang.org/book/) ücretsiz ve Türkçe çevirisi mevcuttur.
-
----
-
-**S: Bu proje Mainnet'te çalışır mı?**
-
-A: Evet, ancak `stellar.ts` dosyasındaki URL'leri Mainnet adresleriyle değiştirmeniz ve Freighter'da Mainnet'i seçmeniz gerekir. Mainnet'te gerçek XLM harcanır, dikkatli olun.
-
----
-
-## Faydalı Kaynaklar
-
-| Kaynak | URL |
-|---|---|
-| Stellar Resmi Dokümantasyon | https://developers.stellar.org |
-| Soroban Dokümantasyon | https://developers.stellar.org/docs/smart-contracts |
-| Stellar JavaScript SDK | https://stellar.github.io/js-stellar-sdk |
-| Soroban Rust SDK | https://docs.rs/soroban-sdk |
-| Stellar Testnet Explorer | https://stellar.expert/explorer/testnet |
-| Friendbot (Testnet Fonlama) | https://friendbot.stellar.org |
-| Freighter Cüzdan | https://www.freighter.app |
-| Rust Programlama Dili | https://www.rust-lang.org/tr |
-| The Rust Book (Türkçe) | https://rustdili.github.io |
-
----
-
-## Katkı Sağlamak
-
-1. Bu repoyu fork'layın
-2. Yeni bir dal oluşturun: `git checkout -b ozellik/yeni-ozellik`
-3. Değişikliklerinizi kaydedin: `git commit -m "Yeni özellik ekle"`
-4. Dalınızı gönderin: `git push origin ozellik/yeni-ozellik`
-5. Pull Request açın
-
----
-
-## Lisans
-
-Bu proje MIT Lisansı ile lisanslanmıştır.
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `sync_orders` | `Order[]` | Active order list |
+| `sync_stock` | `{ [itemId]: boolean }` | Current stock status |
+| `sync_menu` | `MenuItem[]` | Current menu |
+| `sync_tables` | `Table[]` | Table statuses |
+| `sync_waiters` | `Waiter[]` | Waiter list |
+| `new_order_alert` | — | New order notification |
+| `new_complaint` | `{ id, table, text }` | New complaint or call |
 
 ---
 
-<div align="center">
-  <sub>Stellar Testnet üzerinde çalışmaktadır · Gerçek para içermez</sub>
-</div>
+## 👥 Roles & Authentication
+
+| Role | Entry Point | Credentials | Access |
+|------|-------------|-------------|--------|
+| **Customer** | QR code → `/menu/:tableId` | None required | Menu, cart, payment |
+| **Waiter** | Landing page form | Username + PIN | Order management, stock, table status |
+| **Admin** | Landing page form | `admin` / `1111` | All waiter access + menu management + analytics |
+
+Authentication state is stored in `localStorage`:
+- `adminAuth: "true"` → Admin access
+- `waiterAuth: "true"` → Waiter access
+
+> **Default waiter:** Username `Garson 1`, PIN `1234`
+> **Admin:** Username `admin`, PIN `1111`
+
+---
+
+## 📱 QR Code Generation
+
+```bash
+cd backend
+node generate_qrs.js
+```
+
+The script auto-detects the local IP from the Wi-Fi adapter and generates one QR PNG per table:
+
+```
+../Masa_QRCodes/
+  Masa_1_QR.png  →  http://10.0.8.36:3001/menu/1
+  Masa_2_QR.png  →  http://10.0.8.36:3001/menu/2
+  Masa_3_QR.png  →  http://10.0.8.36:3001/menu/3
+  Masa_4_QR.png  →  http://10.0.8.36:3001/menu/4
+  Masa_5_QR.png  →  http://10.0.8.36:3001/menu/5
+```
+
+> ⚠️ QR codes contain the machine's local IP address. Regenerate them if the IP changes.
+
+---
+
+## 🌐 Network & Environment
+
+| Service | Local | Network |
+|---------|-------|---------|
+| Frontend | http://localhost:3001 | http://10.0.8.36:3001 |
+| Backend | http://localhost:4000 | http://10.0.8.36:4000 |
+| Soroban RPC | https://soroban-testnet.stellar.org | — |
+| Stellar Horizon | https://horizon-testnet.stellar.org | — |
+| Block Explorer | https://stellar.expert/explorer/testnet | — |
+
+---
+
+## 🛠 Tech Stack
+
+### Frontend
+
+| Package | Version | Usage |
+|---------|---------|-------|
+| React | 18.3 | UI framework |
+| Vite | 5.4 | Build tool / dev server |
+| TypeScript | 5.5 | Type safety |
+| react-router-dom | 7 | Client-side routing |
+| framer-motion | 12 | Animations & transitions |
+| socket.io-client | 4.8 | Real-time communication |
+| @stellar/stellar-sdk | 14.6 | Transaction building & signing |
+| @stellar/freighter-api | 4.0 | Freighter wallet integration |
+| @albedo-link/intent | 0.13 | Albedo mobile payment |
+| lucide-react | 1.14 | Icons |
+| qrcode.react | 4.2 | QR code rendering |
+
+### Backend
+
+| Package | Version | Usage |
+|---------|---------|-------|
+| express | 4.19 | HTTP server |
+| socket.io | 4.8 | WebSocket server |
+| better-sqlite3 | 12.9 | SQLite database |
+| multer | 2.1 | File uploads |
+| cors | 2.8 | CORS policy |
+| qrcode | 1.5 | QR PNG generation |
+
+### Smart Contract
+
+| Tool | Version | Usage |
+|------|---------|-------|
+| Rust | stable | Contract development |
+| soroban-sdk | 25.0.1 | Soroban runtime |
+| stellar-cli | latest | Deploy & invoke |
+
+---
+
+## 🔒 Security Notes
+
+- This project runs on **Stellar Testnet** — no real XLM is used.
+- Admin and waiter PINs should be hashed and strengthened for production use.
+- The `cafe_owner` private key should be stored in a secure environment variable in production.
+- The `waiter.require_auth()` call in the Soroban contract enforces real signature verification in production.
+
+---
+
+## 📄 License
+
+MIT © 2026 Web3 Café POS

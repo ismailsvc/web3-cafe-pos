@@ -1,4 +1,26 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+target/
+
+# Environment variables
 .env
 .env.local
+.env.*.local
+
+# SQLite database (runtime data)
+backend/cafe.db
+backend/cafe.db-shm
+backend/cafe.db-wal
+
+# Uploaded images (runtime data)
+backend/uploads/
+
+# OS & editor
+.DS_Store
+Thumbs.db
+.vs/
+*.suo
+*.user

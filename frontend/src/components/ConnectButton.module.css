@@ -14,7 +14,7 @@
   transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
   box-shadow: 0 0 0 0 var(--accent-glow);
 }
-
+      
 .connectBtn:hover:not(:disabled) {
   background: var(--accent-hover);
   box-shadow: 0 0 20px var(--accent-glow);
