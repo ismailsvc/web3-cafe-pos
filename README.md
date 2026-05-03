@@ -95,7 +95,7 @@ cd backend && node generate_qrs.js
 | | |
 |--|--|
 | **Contract ID** | `CCDRWVJTAIOB7TADJEE6XYG2EZSH3CLE35AN5BWEVVAANRNGDXY53VXK` |
-| **Deployment Transaction** | [`eeef6734...fee`](https://stellar.expert/explorer/testnet/tx/eeef6734244d986be2f363039d16b7ee1133c607c5f4832637a128882d425fee) |
+| **Deployment Transaction** | [`eeef6734244d986be2f363039d16b7ee1133c607c5f4832637a128882d425fee`](https://stellar.expert/explorer/testnet/tx/eeef6734244d986be2f363039d16b7ee1133c607c5f4832637a128882d425fee) |
 | **Deployed** | May 2, 2026 — Ledger #2348744 |
 | **Deployer** | `GDDCU4GYVJTV45NUFG3WYXUG4Q2BA54UUWPGRFVPOHGDNWN2U4E6K4B7` |
 | **Native Token** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
