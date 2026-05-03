@@ -24,6 +24,19 @@ Backend calls fulfill_order → XLM released to café owner
 
 ---
 
+## Screenshots
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+  <img src="ScreenShots/screenshot_1.png" width="32%" />
+  <img src="ScreenShots/screenshot_2.png" width="32%" />
+  <img src="ScreenShots/screenshot_4.png" width="32%" />
+  <img src="ScreenShots/screenshot_5.png" width="32%" />
+  <img src="ScreenShots/screenshot_6.png" width="32%" />
+  <img src="ScreenShots/screenshot_7.png" width="32%" />
+</div>
+
+---
+
 ## Stack
 
 | Layer | Tech |
